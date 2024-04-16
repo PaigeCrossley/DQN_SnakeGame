@@ -1,0 +1,168 @@
+<!-- code adapted from https://www.educative.io/blog/javascript-snake-game-tutorial -->
+<!DOCTYPE html>
+<html style="background-color: #819783;">
+    <body>
+        <div id="score">0</div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+        <style>
+            #gameCanvas {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+        </style>
+    </body>
+
+    <script>
+        const snakeColour = "#3a3b29";
+        const snakeBorder = "#4d4e3e";
+        const boardBorder = "#3a3b29";
+        const boardBackground = "#819783";
+
+        let snake = [ {x: 200, y: 200}, {x: 190, y: 200}, {x: 180, y: 200}, {x: 170, y: 200}, ] // The snake starts out as 4 "pixels"/fragments in the center of the board with the tail running to the left
+        let score = 0;
+        let changingDirection = false; // Initally, he is not changing direction
+        let foodx; // Food x coordinate
+        let foody; // Food y coordinate
+        let dx = 10; // This is the snake's "velocity", he is always moving forwards, horizontally
+        let dy = 0; // He does not have independent vertical velocity
+
+        const snakeboard = document.getElementById("gameCanvas"); // Create the game board by getting the canvas element
+        const snakeboard_ctx = gameCanvas.getContext("2d"); // The context is 2-dimensional
+
+        main(); // Start the game
+
+        placeFood(); // Get the randomly placed food coordinates
+
+        document.addEventListener("keydown", movement); // Key press event listener
+
+        function main() {
+
+            changingDirection = false;
+
+            setTimeout(function onTick() {
+                clearCanvas();
+                drawFood();
+                moveSnake();
+                drawSnake();
+                if (gameEndCheck()) {
+                    alert("Game Over! Click OK to continue..."); // Added as a stopgap so the next game won't start until you click OK
+                    resetGame(); // Resets the game board and starts the next game
+                } 
+                else {
+                    main(); // Recursive calls to main to keep game running
+                }
+            }, 100)
+        }
+
+        function clearCanvas() { // Draws the game board
+            snakeboard_ctx.fillStyle = boardBackground; 
+            snakeboard_ctx.strokestyle = boardBorder;
+            snakeboard_ctx.fillRect(0, 0, snakeboard.width, snakeboard.height); // Background
+            snakeboard_ctx.strokeRect(0, 0, snakeboard.width, snakeboard.height); // Border
+        }
+
+        function drawSnake() { // Draws each pixel for the snake
+            snake.forEach(drawSnakePixel);
+        }
+
+        function drawFood() { // Draws the food
+            const centerX = (foodx + foodx+10)/2; // Find the center of the food by finding the midpoint of a square
+            const centerY = (foody + foody+10)/2;
+            snakeboard_ctx.fillStyle = snakeColour;
+            // Create the food design by placing pixels in a "plus sign" config but without the center
+            snakeboard_ctx.fillRect(centerX - 2, centerY - 5, 3, 3); // Top pixel
+            snakeboard_ctx.fillRect(centerX - 2, centerY + 1, 3, 3); // Bottom pixel
+            snakeboard_ctx.fillRect(centerX - 5, centerY - 2, 3, 3); // Left pixel
+            snakeboard_ctx.fillRect(centerX + 1, centerY - 2, 3, 3); // Right pixel
+        }
+
+        function drawSnakePixel(snakePixel) { // Draws the snake, each pixel is 10x10
+            snakeboard_ctx.fillStyle = snakeColour;
+            snakeboard_ctx.strokeStyle = snakeBorder;
+            snakeboard_ctx.fillRect(snakePixel.x, snakePixel.y, 10, 10);  
+            snakeboard_ctx.strokeRect(snakePixel.x, snakePixel.y, 10, 10);
+        }
+
+        function gameEndCheck() { // Checks if the game is over
+            for (let i = 3; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true // If the snake's head (snake[0]) comes into contact with a body part (snake[i]), return true
+            }
+            const leftWall = snake[0].x < 0; // If the snake head hits the left wall
+            const rightWall = snake[0].x > snakeboard.width - 10; // If the snake head hits the right wall
+            const topWall = snake[0].y < 0; // If the snake head hits the top wall
+            const bottomWall = snake[0].y > snakeboard.height - 10; // If the snake head hits the bottom wall
+            return leftWall || rightWall || topWall || bottomWall // return true if any of the conditions are met, otherwise returns false
+        }
+
+        function randFood(min, max) { // Provides a random food coordinate, between 0 and the width/height of the game board
+            return Math.round((Math.random() * (max-min) + min) / 10) * 10; 
+        }
+
+        function placeFood() { // Chooses food placement
+            foodx = randFood(0, snakeboard.width - 10) // Get food x coordinate
+            foody = randFood(0, snakeboard.height - 10) // Get food y coordinate
+            snake.forEach(function eatenCheck(pixel) { // If the food is in the same position as the snake, place a new food
+                const eaten = pixel.x == foodx && pixel.y == foody;
+                if (eaten) placeFood();
+            })
+        }
+
+        function movement(event) { // Deals with snake movement
+            const LEFT_KEY = 37; // Arrow key bindings, 
+            const RIGHT_KEY = 39;
+            const UP_KEY = 38;
+            const DOWN_KEY = 40;
+            // Below makes sure only one direction change is processed at a time and prevents the snake from doubling back on itself while setting it's velocity & direction
+            if (changingDirection) return;
+            changingDirection = true;
+            const keyPressed = event.keyCode;
+            const facingUp = dy === -10;
+            const facingDown = dy === 10;
+            const facingLeft = dx === -10;
+            const facingRight = dx === 10;
+            if (keyPressed === LEFT_KEY && !facingRight) {
+                dx = -10;
+                dy = 0;
+            }
+            if (keyPressed === RIGHT_KEY && !facingLeft) {
+                dx = 10;
+                dy = 0;
+            }
+            if (keyPressed === UP_KEY && !facingDown) {
+                dx = 0;
+                dy = -10;
+            }
+            if (keyPressed === DOWN_KEY && !facingUp) {
+                dx = 0;
+                dy = 10;
+            }
+        }
+
+        function moveSnake() { // Moves the snake and increases the length when food is eaten
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy}; // Create snake head at new location
+            snake.unshift(head); // Add the new head to the snake's body
+            const hasEaten = snake[0].x === foodx && snake[0].y === foody; // Checks if the snake has eaten the food
+            if (hasEaten) {
+                score += 1; // Increase the score
+                document.getElementById('score').innerHTML = score; // Update score div
+                placeFood(); // Place new food
+            } else {
+                snake.pop(); // If food was not eaten, remove the last position of the snake's tail, ensures the snake stays the same length
+            } // The snake grows because snake.pop() is not run in the event that food is eaten, leading to a single pixel addition
+        }
+
+        function resetGame() { // Resets the game board
+            snake = [{x: 200, y: 200}, {x: 190, y: 200}, {x: 180, y: 200}, {x: 170, y: 200}]; // Reset snake length and position
+            dx = 10; // Reset snake velocity
+            dy = 0;
+            score = 0; // Reset score
+            document.getElementById('score').innerHTML = score;
+            placeFood(); // Place new food
+            main(); // Call main to restart the game
+        }
+
+    </script>
+</html>
